@@ -1,0 +1,1 @@
+ALTER TABLE public.meta_organizations ADD COLUMN show_dummy_templates boolean NOT NULL DEFAULT false;

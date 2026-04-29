@@ -1,0 +1,1 @@
+DROP POLICY "Anyone can view active meta orgs" ON public.meta_organizations;

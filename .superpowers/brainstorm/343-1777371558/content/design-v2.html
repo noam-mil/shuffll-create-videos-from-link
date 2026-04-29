@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Video Generator — Design v2</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    background: #0e0a08;
+    color: #f0ebe4;
+    min-height: 100vh;
+    padding: 32px 20px 60px;
+  }
+
+  h2 {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: #f0ebe4;
+    margin-bottom: 6px;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 13px;
+    color: #8a7060;
+    margin-bottom: 32px;
+  }
+
+  /* ── Color tokens matching the app ── */
+  :root {
+    --bg:         #0e0a08;
+    --card:       #1a120d;
+    --card2:      #221710;
+    --border:     #2e2018;
+    --border2:    #3d2e22;
+    --primary:    hsl(25, 95%, 53%);   /* #f97316 */
+    --primary-dk: hsl(25, 95%, 42%);
+    --primary-lt: hsl(25, 95%, 68%);
+    --accent:     hsl(35, 100%, 50%);  /* #ff8c00 */
+    --text:       #f0ebe4;
+    --text-muted: #8a7060;
+    --text-dim:   #4a3828;
+    --success:    #22c55e;
+    --success-bg: rgba(34,197,94,0.12);
+    --glow:       0 0 32px rgba(249,115,22,0.2);
+    --radius:     12px;
+  }
+
+  /* ── Grid of 3 states ── */
+  .states {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    max-width: 1000px;
+    margin: 0 auto 40px;
+  }
+  @media (max-width: 768px) {
+    .states { grid-template-columns: 1fr; }
+  }
+
+  .state-label {
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+
+  /* ── Page frame ── */
+  .page-frame {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+
+  /* Top bar */
+  .top-bar {
+    background: #130d09;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .logo-icon {
+    width: 22px; height: 22px;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    border-radius: 6px;
+  }
+  .logo-text {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    color: var(--text);
+  }
+  .lang-toggle {
+    display: flex;
+    gap: 1px;
+    background: var(--border);
+    border-radius: 6px;
+    padding: 2px;
+  }
+  .lang-btn {
+    padding: 3px 7px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--text-muted);
+  }
+  .lang-btn.active {
+    background: var(--card2);
+    color: var(--text);
+  }
+
+  /* Page body */
+  .page-body {
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Hero */
+  .hero {
+    text-align: center;
+    padding: 6px 0 10px;
+  }
+  .hero-icon {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, rgba(249,115,22,0.2), rgba(255,140,0,0.1));
+    border: 1px solid rgba(249,115,22,0.25);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+    margin: 0 auto 10px;
+  }
+  .hero h1 {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.3px;
+    margin-bottom: 4px;
+  }
+  .hero p {
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  /* Step card */
+  .step-card {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: all 0.3s;
+  }
+  .step-card.active {
+    border-color: rgba(249,115,22,0.35);
+    box-shadow: var(--glow);
+  }
+  .step-card.done {
+    border-color: rgba(34,197,94,0.25);
+    background: rgba(34,197,94,0.04);
+  }
+  .step-card.inactive {
+    opacity: 0.38;
+  }
+  .step-card.loading {
+    border-color: rgba(249,115,22,0.2);
+    opacity: 0.75;
+  }
+
+  .step-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .step-num {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 800;
+    flex-shrink: 0;
+  }
+  .step-num.active   { background: linear-gradient(135deg, var(--primary), var(--accent)); color: #fff; }
+  .step-num.inactive { background: transparent; border: 1px solid var(--border2); color: var(--text-dim); }
+  .step-num.done     { background: var(--success); color: #fff; font-size: 10px; }
+  .step-num.loading  { background: rgba(249,115,22,0.15); border: 1px solid rgba(249,115,22,0.3); color: var(--primary); }
+  .step-title {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+  }
+  .step-title.active { color: var(--text); }
+  .step-title.done   { color: var(--success); }
+  .badge-ready {
+    margin-left: auto;
+    background: var(--success-bg);
+    border: 1px solid rgba(34,197,94,0.3);
+    border-radius: 5px;
+    padding: 2px 7px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--success);
+  }
+
+  /* URL input row */
+  .input-row {
+    display: flex;
+    gap: 7px;
+    align-items: center;
+  }
+  .url-input {
+    flex: 1;
+    background: #0e0a08;
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    padding: 0 11px;
+    gap: 6px;
+  }
+  .url-input .icon { font-size: 11px; opacity: 0.4; }
+  .url-input .text { font-size: 10px; color: var(--text-dim); }
+  .url-input .text.filled { color: var(--text-muted); }
+
+  .btn-generate {
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    border-radius: 8px;
+    height: 34px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    white-space: nowrap;
+    box-shadow: 0 2px 12px rgba(249,115,22,0.3);
+    cursor: pointer;
+  }
+  .btn-generate.loading {
+    background: rgba(249,115,22,0.15);
+    box-shadow: none;
+    color: var(--primary-lt);
+  }
+
+  /* Spinner */
+  .spinner {
+    width: 11px; height: 11px;
+    border-radius: 50%;
+    border: 2px solid rgba(249,115,22,0.3);
+    border-top-color: var(--primary);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Video placeholder */
+  .video-placeholder {
+    background: #0a0705;
+    border-radius: 8px;
+    height: 110px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 6px;
+    border: 1px solid var(--border);
+  }
+  .video-placeholder .play-hint {
+    font-size: 9px;
+    color: var(--text-dim);
+  }
+
+  /* Video player */
+  .video-player {
+    background: #000;
+    border-radius: 9px;
+    height: 110px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .video-player .bg-grad {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #1a0d05 0%, #0d0805 50%, #100a08 100%);
+  }
+  .video-player .play-btn {
+    position: relative;
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 20px rgba(249,115,22,0.5);
+    font-size: 14px;
+    padding-left: 2px;
+  }
+  .video-player .duration {
+    position: absolute;
+    bottom: 7px;
+    right: 8px;
+    font-size: 9px;
+    color: rgba(255,255,255,0.5);
+    font-weight: 600;
+  }
+  .video-player .progress-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0; right: 0;
+    height: 2px;
+    background: var(--border);
+  }
+  .video-player .progress-fill {
+    height: 100%;
+    width: 35%;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+  }
+
+  /* Action buttons */
+  .action-row {
+    display: flex;
+    gap: 6px;
+  }
+  .btn-action-primary {
+    flex: 1;
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    border-radius: 7px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-size: 9px;
+    font-weight: 700;
+    color: #fff;
+    box-shadow: 0 2px 10px rgba(249,115,22,0.25);
+  }
+  .btn-action-ghost {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--border2);
+    border-radius: 7px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+  .btn-icon {
+    background: transparent;
+    border: 1px solid var(--border2);
+    border-radius: 7px;
+    height: 30px;
+    width: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  /* Done row (compact step 1 when result is showing) */
+  .step-done-row {
+    background: rgba(34,197,94,0.05);
+    border: 1px solid rgba(34,197,94,0.2);
+    border-radius: var(--radius);
+    padding: 9px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .step-done-row .check {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--success);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; color: #fff;
+    flex-shrink: 0;
+  }
+  .step-done-row .url-text {
+    font-size: 9px;
+    color: var(--text-muted);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .step-done-row .done-tag {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--success);
+    flex-shrink: 0;
+  }
+
+  /* Progress bar in loading step 2 */
+  .shimmer {
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--border) 0%, rgba(249,115,22,0.5) 50%, var(--border) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+
+  /* Notes section */
+  .notes {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+  }
+  .notes h3 {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+  .notes ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+  .notes li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+    color: #b8a898;
+    line-height: 1.5;
+  }
+  .notes li::before {
+    content: '→';
+    color: var(--primary);
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  code {
+    background: rgba(249,115,22,0.1);
+    border: 1px solid rgba(249,115,22,0.2);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-family: 'Menlo', 'Consolas', monospace;
+    color: var(--primary-lt);
+  }
+</style>
+</head>
+<body>
+
+<h2>Video Generator — Refined Design</h2>
+<p class="subtitle">Real brand colors · 3 page states · Shuffll design system</p>
+
+<div class="states">
+
+  <!-- ── STATE 1: Idle ── -->
+  <div>
+    <div class="state-label">① Idle — awaiting URL</div>
+    <div class="page-frame">
+      <div class="top-bar">
+        <div class="logo">
+          <div class="logo-icon"></div>
+          <span class="logo-text">shuffll</span>
+        </div>
+        <div class="lang-toggle">
+          <div class="lang-btn active">EN</div>
+          <div class="lang-btn">עב</div>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="hero">
+          <div class="hero-icon">🏠</div>
+          <h1>Property Video Generator</h1>
+          <p>Paste a listing URL and get a ready-to-share video</p>
+        </div>
+
+        <!-- Step 1 active -->
+        <div class="step-card active">
+          <div class="step-header">
+            <div class="step-num active">1</div>
+            <div class="step-title active">Property URL</div>
+          </div>
+          <div class="input-row">
+            <div class="url-input">
+              <span class="icon">🔗</span>
+              <span class="text">https://www.yad2.co.il/item/...</span>
+            </div>
+            <div class="btn-generate">Generate →</div>
+          </div>
+        </div>
+
+        <!-- Step 2 inactive -->
+        <div class="step-card inactive">
+          <div class="step-header">
+            <div class="step-num inactive">2</div>
+            <div class="step-title">Your Video</div>
+          </div>
+          <div class="video-placeholder">
+            <span style="font-size:22px;opacity:0.3;">▶</span>
+            <span class="play-hint">Video will appear here</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STATE 2: Loading ── -->
+  <div>
+    <div class="state-label">② Generating…</div>
+    <div class="page-frame">
+      <div class="top-bar">
+        <div class="logo">
+          <div class="logo-icon"></div>
+          <span class="logo-text">shuffll</span>
+        </div>
+        <div class="lang-toggle">
+          <div class="lang-btn active">EN</div>
+          <div class="lang-btn">עב</div>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="hero">
+          <div class="hero-icon">🏠</div>
+          <h1>Property Video Generator</h1>
+          <p>Paste a listing URL and get a ready-to-share video</p>
+        </div>
+
+        <!-- Step 1 loading -->
+        <div class="step-card loading">
+          <div class="step-header">
+            <div class="step-num loading">✓</div>
+            <div class="step-title">Property URL</div>
+          </div>
+          <div class="input-row">
+            <div class="url-input">
+              <span class="icon">🔗</span>
+              <span class="text filled">yad2.co.il/item/abc123</span>
+            </div>
+            <div class="btn-generate loading">
+              <div class="spinner"></div>
+              Working…
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2 waking up -->
+        <div class="step-card active" style="border-color:rgba(249,115,22,0.2);">
+          <div class="step-header">
+            <div class="step-num loading">2</div>
+            <div class="step-title" style="color:var(--primary-lt);">Your Video</div>
+          </div>
+          <div class="video-placeholder" style="height:80px;flex-direction:column;gap:8px;">
+            <div class="shimmer" style="width:80%;"></div>
+            <span class="play-hint">Processing property data…</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── STATE 3: Result ── -->
+  <div>
+    <div class="state-label">③ Video ready!</div>
+    <div class="page-frame">
+      <div class="top-bar">
+        <div class="logo">
+          <div class="logo-icon"></div>
+          <span class="logo-text">shuffll</span>
+        </div>
+        <div class="lang-toggle">
+          <div class="lang-btn active">EN</div>
+          <div class="lang-btn">עב</div>
+        </div>
+      </div>
+      <div class="page-body">
+        <div class="hero">
+          <div class="hero-icon">🏠</div>
+          <h1>Property Video Generator</h1>
+          <p>Paste a listing URL and get a ready-to-share video</p>
+        </div>
+
+        <!-- Step 1 collapsed / done -->
+        <div class="step-done-row">
+          <div class="check">✓</div>
+          <span class="url-text">yad2.co.il/item/abc123</span>
+          <span class="done-tag">Done</span>
+        </div>
+
+        <!-- Step 2 result -->
+        <div class="step-card active">
+          <div class="step-header">
+            <div class="step-num done">✓</div>
+            <div class="step-title active">Your Video</div>
+            <div class="badge-ready">Ready!</div>
+          </div>
+
+          <div class="video-player">
+            <div class="bg-grad"></div>
+            <div class="play-btn">▶</div>
+            <div class="duration">0:42</div>
+            <div class="progress-bar"><div class="progress-fill"></div></div>
+          </div>
+
+          <div class="action-row">
+            <div class="btn-action-primary">📋 Copy Link</div>
+            <div class="btn-action-ghost">↓ Download</div>
+            <div class="btn-icon" title="Generate again">↺</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="notes">
+  <h3>Design decisions</h3>
+  <ul>
+    <li>Brand orange gradient (<code>#f97316 → #ff8c00</code>) on buttons, step badges, and glows — matches the app's <code>--primary</code> + <code>--accent</code> tokens</li>
+    <li>Warm dark background (<code>hsl(30 15% 8%)</code>) — same dark mode as the rest of the app</li>
+    <li>Step 1 collapses to a slim "done" row in state 3 so the video has full breathing room</li>
+    <li>Language toggle (EN / עב) top-right using <code>useTranslation()</code> — same i18n setup already in the app</li>
+    <li>Generate button disabled until URL has content, orange glow on active step card</li>
+    <li>Reset (↺) button returns to idle state so the user can generate another video</li>
+  </ul>
+</div>
+
+</body>
+</html>

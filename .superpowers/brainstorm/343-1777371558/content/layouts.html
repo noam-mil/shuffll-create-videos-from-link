@@ -1,0 +1,87 @@
+<h2>3 Layout Approaches</h2>
+<p class="subtitle">Which page structure feels right for the video generator?</p>
+
+<div class="cards">
+
+  <!-- Option A -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0f0f0f;padding:16px;min-height:260px;display:flex;flex-direction:column;gap:12px;align-items:stretch;justify-content:flex-start;">
+      <div style="text-align:center;padding:8px 0;">
+        <div style="font-size:11px;color:#888;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;">Video Generator</div>
+      </div>
+      <div style="background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:10px 12px;display:flex;gap:8px;align-items:center;">
+        <div style="flex:1;background:#0f0f0f;border:1px solid #444;border-radius:6px;height:28px;"></div>
+        <div style="background:#6366f1;border-radius:6px;padding:6px 14px;font-size:10px;color:#fff;white-space:nowrap;">Generate</div>
+      </div>
+      <div style="background:#1a1a1a;border:1px dashed #333;border-radius:8px;flex:1;min-height:140px;display:flex;align-items:center;justify-content:center;">
+        <div style="text-align:center;color:#555;">
+          <div style="font-size:28px;margin-bottom:6px;">▶</div>
+          <div style="font-size:10px;">Video appears here</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Stacked</h3>
+      <p>Input bar at the top, video result expands below. Simple single-column flow. Best for mobile and quick use.</p>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0f0f0f;padding:16px;min-height:260px;display:flex;flex-direction:column;gap:10px;">
+      <div style="text-align:center;padding:6px 0;">
+        <div style="font-size:11px;color:#888;letter-spacing:2px;text-transform:uppercase;">Video Generator</div>
+      </div>
+      <div style="display:flex;gap:10px;flex:1;">
+        <!-- Left panel -->
+        <div style="flex:1;background:#1a1a1a;border:1px solid #333;border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:8px;">
+          <div style="font-size:9px;color:#888;text-transform:uppercase;letter-spacing:1px;">Property URL</div>
+          <div style="background:#0f0f0f;border:1px solid #444;border-radius:6px;height:26px;"></div>
+          <div style="background:#6366f1;border-radius:6px;height:28px;margin-top:4px;"></div>
+          <div style="margin-top:8px;font-size:9px;color:#666;">
+            <div style="margin-bottom:4px;">✓ Extracts property details</div>
+            <div style="margin-bottom:4px;">✓ Generates personalized video</div>
+            <div>✓ Ready to share</div>
+          </div>
+        </div>
+        <!-- Right panel -->
+        <div style="flex:1.2;background:#1a1a1a;border:1px dashed #333;border-radius:8px;display:flex;align-items:center;justify-content:center;">
+          <div style="text-align:center;color:#555;">
+            <div style="font-size:28px;margin-bottom:6px;">▶</div>
+            <div style="font-size:10px;">Result</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Split Panel</h3>
+      <p>Input panel on the left, video result on the right. Both visible at the same time. Best for desktop power users.</p>
+    </div>
+  </div>
+
+  <!-- Option C -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0f0f0f;padding:16px;min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;">
+      <!-- Step indicator -->
+      <div style="display:flex;align-items:center;gap:6px;">
+        <div style="width:22px;height:22px;border-radius:50%;background:#6366f1;display:flex;align-items:center;justify-content:center;font-size:9px;color:#fff;">1</div>
+        <div style="width:30px;height:1px;background:#333;"></div>
+        <div style="width:22px;height:22px;border-radius:50%;background:#222;border:1px solid #444;display:flex;align-items:center;justify-content:center;font-size:9px;color:#666;">2</div>
+        <div style="width:30px;height:1px;background:#333;"></div>
+        <div style="width:22px;height:22px;border-radius:50%;background:#222;border:1px solid #444;display:flex;align-items:center;justify-content:center;font-size:9px;color:#666;">3</div>
+      </div>
+      <!-- Hero input card -->
+      <div style="background:#1a1a1a;border:1px solid #333;border-radius:12px;padding:16px;width:100%;text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center;">
+        <div style="font-size:20px;">🏠</div>
+        <div style="font-size:11px;color:#aaa;">Paste your property page URL</div>
+        <div style="background:#0f0f0f;border:1px solid #444;border-radius:6px;height:26px;width:100%;"></div>
+        <div style="background:#6366f1;border-radius:6px;padding:7px 24px;font-size:10px;color:#fff;">Generate Video →</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Hero / Centered</h3>
+      <p>Big centered card — URL input with a large CTA. Video result takes over the screen after generation. Feels premium, focused.</p>
+    </div>
+  </div>
+
+</div>
