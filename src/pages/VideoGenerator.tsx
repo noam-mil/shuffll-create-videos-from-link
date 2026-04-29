@@ -502,35 +502,29 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
           </div>
 
           {isLoading && (
-            <div className="space-y-4">
-              <div className="w-full aspect-video rounded-xl" style={{ background: 'linear-gradient(90deg, #222 0%, #333 50%, #222 100%)', backgroundSize: '200% 100%', animation: 'shimmer 2s ease-in-out infinite' }} />
-              <div className="flex items-center gap-2 text-gray-500 text-sm">
-                <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
-                {t('videoGen.processing')}
-              </div>
-              {/* Email notification */}
+            <div className="space-y-3">
+              {/* Shimmer panel with email content inside */}
               <div
-                className="rounded-xl p-4 space-y-3"
-                style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(236,72,153,0.06))', border: '1px solid rgba(139,92,246,0.2)' }}
+                className="relative w-full rounded-xl overflow-hidden flex flex-col items-center justify-center gap-4 px-6 py-8"
+                style={{ background: 'linear-gradient(90deg, #1a1a1a 0%, #222 50%, #1a1a1a 100%)', backgroundSize: '200% 100%', animation: 'shimmer 2s ease-in-out infinite', minHeight: '220px' }}
               >
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5" style={badgeGradStyle}>
-                    <svg className="w-4 h-4 text-white fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0l-9.75 6.75L2.25 6.75"/></svg>
+                {/* Icon + heading */}
+                <div className="flex flex-col items-center gap-2 text-center">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={badgeGradStyle}>
+                    <svg className="w-5 h-5 text-white fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0l-9.75 6.75L2.25 6.75"/></svg>
                   </div>
-                  <div>
-                    <p className="text-white text-sm font-semibold">Get notified when it's ready</p>
-                    <p className="text-gray-400 text-xs mt-0.5">Usually 5–10 minutes. Add emails below and we'll send the video link directly.</p>
-                  </div>
+                  <p className="text-white font-semibold text-sm">Get notified when it's ready</p>
+                  <p className="text-gray-400 text-xs max-w-xs">Usually 5–10 minutes. Add emails and we'll send the link directly.</p>
                 </div>
 
                 {/* Email chips */}
                 {emails.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap justify-center gap-1.5">
                     {emails.map(e => (
                       <span
                         key={e}
                         className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-white"
-                        style={{ backgroundColor: 'rgba(139,92,246,0.25)', border: '1px solid rgba(139,92,246,0.4)' }}
+                        style={{ backgroundColor: 'rgba(139,92,246,0.3)', border: '1px solid rgba(139,92,246,0.5)' }}
                       >
                         {e}
                         <button onClick={() => handleRemoveEmail(e)} className="text-purple-300 hover:text-white transition-colors leading-none">×</button>
@@ -541,7 +535,7 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
 
                 {/* Input row */}
                 {!emailSent ? (
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 w-full max-w-sm">
                     <input
                       type="email"
                       value={emailInput}
@@ -549,13 +543,13 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
                       onKeyDown={e => e.key === 'Enter' && handleAddEmail()}
                       placeholder="Add email address…"
                       className="flex-1 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-                      style={{ backgroundColor: '#0a0a0a', border: '1px solid rgba(255,255,255,0.08)', fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                      style={{ backgroundColor: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                     />
                     <button
                       onClick={handleAddEmail}
                       disabled={!emailInput.includes('@')}
                       className="px-3 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:opacity-90"
-                      style={{ backgroundColor: 'rgba(139,92,246,0.3)', border: '1px solid rgba(139,92,246,0.4)' }}
+                      style={{ backgroundColor: 'rgba(139,92,246,0.35)', border: '1px solid rgba(139,92,246,0.5)' }}
                     >
                       + Add
                     </button>
@@ -571,9 +565,14 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
                 ) : (
                   <div className="flex items-center gap-2 text-sm font-semibold" style={gradStyle}>
                     <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
-                    We'll notify {emails.length === 1 ? emails[0] : `${emails.length} people`} when the video is ready.
+                    We'll notify {emails.length === 1 ? emails[0] : `${emails.length} people`} when ready.
                   </div>
                 )}
+              </div>
+
+              <div className="flex items-center gap-2 text-gray-500 text-sm">
+                <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+                {t('videoGen.processing')}
               </div>
             </div>
           )}
