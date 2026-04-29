@@ -176,8 +176,8 @@ export async function insertDuplicatedRow(
   return newRow;
 }
 
-// Read column AB of a row, push email to the stored array, write back
-export async function addEmailToRow(spreadsheetId: string, rowIndex: number, email: string): Promise<void> {
+// Read column AB of a row, merge all provided emails into the stored array, write back once
+export async function addEmailToRow(spreadsheetId: string, rowIndex: number, newEmails: string[]): Promise<void> {
   const token = await getAccessToken();
 
   // Read current AB value
@@ -189,19 +189,24 @@ export async function addEmailToRow(spreadsheetId: string, rowIndex: number, ema
   const raw = readData.values?.[0]?.[0] ?? '';
 
   // Parse existing array (stored as JSON) or start fresh
-  let emails: string[] = [];
+  let existing: string[] = [];
   if (raw) {
-    try { emails = JSON.parse(raw); } catch { emails = [raw]; }
+    try { existing = JSON.parse(raw); } catch { existing = [raw]; }
   }
-  if (!emails.includes(email)) emails.push(email);
 
-  // Write back
+  // Merge, deduplicate
+  const merged = [...existing];
+  for (const e of newEmails) {
+    if (!merged.includes(e)) merged.push(e);
+  }
+
+  // Write back in one call
   const writeRes = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/AB${rowIndex}:AB${rowIndex}?valueInputOption=USER_ENTERED`,
     {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [[JSON.stringify(emails)]] }),
+      body: JSON.stringify({ values: [[JSON.stringify(merged)]] }),
     },
   );
   if (!writeRes.ok) throw new Error(`Email write failed: ${writeRes.status}`);

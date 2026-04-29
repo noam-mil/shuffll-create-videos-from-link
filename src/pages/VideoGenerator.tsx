@@ -419,7 +419,7 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
   const handleNotify = async () => {
     if (emails.length === 0 || genState.status !== 'loading') return;
     try {
-      await Promise.all(emails.map(e => addEmailToRow(sheetId, genState.rowIndex, e)));
+      await addEmailToRow(sheetId, genState.rowIndex, emails);
       setEmailSent(true);
       toast.success('Done! We\'ll email you when your video is ready.');
     } catch {
