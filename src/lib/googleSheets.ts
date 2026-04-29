@@ -168,7 +168,7 @@ export async function insertDuplicatedRow(
     {
       method: 'PUT',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: [newValues] }),
+      body: JSON.stringify({ values: [newValues.slice(0, 27)] }),
     },
   );
   if (!writeRes.ok) throw new Error(`Row write failed: ${writeRes.status}`);
