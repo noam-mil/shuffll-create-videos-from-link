@@ -360,7 +360,8 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
   const { t } = useTranslation();
   const sheetId = extractSheetId(excelUrl) ?? '';
   const [newLink,   setNewLink]   = useState('');
-  const [email,         setEmail]         = useState('');
+  const [emailInput,    setEmailInput]    = useState('');
+  const [emails,        setEmails]        = useState<string[]>([]);
   const [emailSent,     setEmailSent]     = useState(false);
   const [genState,      setGenState]      = useState<ExcelGenState>({ status: 'idle' });
   const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -406,18 +407,27 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
     }
   };
 
+  const handleAddEmail = () => {
+    const e = emailInput.trim().toLowerCase();
+    if (!e.includes('@') || emails.includes(e)) return;
+    setEmails(prev => [...prev, e]);
+    setEmailInput('');
+  };
+
+  const handleRemoveEmail = (e: string) => setEmails(prev => prev.filter(x => x !== e));
+
   const handleNotify = async () => {
-    if (!email.includes('@') || genState.status !== 'loading') return;
+    if (emails.length === 0 || genState.status !== 'loading') return;
     try {
-      await addEmailToRow(sheetId, genState.rowIndex, email);
+      await Promise.all(emails.map(e => addEmailToRow(sheetId, genState.rowIndex, e)));
       setEmailSent(true);
-      toast.success('Got it! We\'ll email you when your video is ready.');
+      toast.success('Done! We\'ll email you when your video is ready.');
     } catch {
-      toast.error('Failed to save email, please try again.');
+      toast.error('Failed to save emails, please try again.');
     }
   };
 
-  const handleReset = () => { setNewLink(''); setEmail(''); setEmailSent(false); setGenState({ status: 'idle' }); };
+  const handleReset = () => { setNewLink(''); setEmailInput(''); setEmails([]); setEmailSent(false); setGenState({ status: 'idle' }); };
 
   const handleCopy = async () => {
     if (genState.status !== 'result') return;
@@ -498,29 +508,72 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
                 <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
                 {t('videoGen.processing')}
               </div>
-              {/* Email capture */}
-              <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: '#111', border: '1px solid rgba(255,255,255,0.07)' }}>
-                <p className="text-gray-300 text-sm leading-relaxed">
-                  This process usually takes <span className="text-white font-semibold">5–10 minutes</span>. Meanwhile — enter your email and we'll send you the video right away.
-                </p>
-                <div className="flex gap-2">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    className="flex-1 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-                    style={{ backgroundColor: '#0f0f0f', border: '1px solid rgba(255,255,255,0.1)', fontFamily: "'Plus Jakarta Sans', sans-serif" }}
-                  />
-                  <button
-                    onClick={handleNotify}
-                    disabled={!email.includes('@') || emailSent}
-                    className="px-4 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:opacity-90 whitespace-nowrap"
-                    style={btnGradStyle}
-                  >
-                    {emailSent ? '✓ Saved' : 'Notify me'}
-                  </button>
+              {/* Email notification */}
+              <div
+                className="rounded-xl p-4 space-y-3"
+                style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(236,72,153,0.06))', border: '1px solid rgba(139,92,246,0.2)' }}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5" style={badgeGradStyle}>
+                    <svg className="w-4 h-4 text-white fill-none stroke-current stroke-2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0l-9.75 6.75L2.25 6.75"/></svg>
+                  </div>
+                  <div>
+                    <p className="text-white text-sm font-semibold">Get notified when it's ready</p>
+                    <p className="text-gray-400 text-xs mt-0.5">Usually 5–10 minutes. Add emails below and we'll send the video link directly.</p>
+                  </div>
                 </div>
+
+                {/* Email chips */}
+                {emails.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {emails.map(e => (
+                      <span
+                        key={e}
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-white"
+                        style={{ backgroundColor: 'rgba(139,92,246,0.25)', border: '1px solid rgba(139,92,246,0.4)' }}
+                      >
+                        {e}
+                        <button onClick={() => handleRemoveEmail(e)} className="text-purple-300 hover:text-white transition-colors leading-none">×</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Input row */}
+                {!emailSent ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      value={emailInput}
+                      onChange={e => setEmailInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleAddEmail()}
+                      placeholder="Add email address…"
+                      className="flex-1 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                      style={{ backgroundColor: '#0a0a0a', border: '1px solid rgba(255,255,255,0.08)', fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                    />
+                    <button
+                      onClick={handleAddEmail}
+                      disabled={!emailInput.includes('@')}
+                      className="px-3 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:opacity-90"
+                      style={{ backgroundColor: 'rgba(139,92,246,0.3)', border: '1px solid rgba(139,92,246,0.4)' }}
+                    >
+                      + Add
+                    </button>
+                    <button
+                      onClick={handleNotify}
+                      disabled={emails.length === 0}
+                      className="px-3 py-2 rounded-lg text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:opacity-90 whitespace-nowrap"
+                      style={btnGradStyle}
+                    >
+                      Notify
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm font-semibold" style={gradStyle}>
+                    <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                    We'll notify {emails.length === 1 ? emails[0] : `${emails.length} people`} when the video is ready.
+                  </div>
+                )}
               </div>
             </div>
           )}
