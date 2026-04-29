@@ -146,6 +146,9 @@ export async function insertDuplicatedRow(
   newValues[2] = '';
   newValues[3] = '';
 
+  // Set O (14) = TRUE
+  newValues[14] = 'TRUE';
+
   // Set S (18), T (19), U (20) = "No"
   newValues[18] = 'No';
   newValues[19] = 'No';
