@@ -397,6 +397,7 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
     const url = newLink.trim();
     try {
       const rowIndex = await insertDuplicatedRow(sheetId, url);
+      fetch('https://n8n.shuffll.cloud/webhook/82192db3-7c08-4e86-8f49-d57e0302d393', { method: 'POST' });
       setGenState({ status: 'loading', rowIndex });
     } catch (e) {
       setGenState({ status: 'error', message: e instanceof Error ? e.message : t('videoGen.errorTitle') });
