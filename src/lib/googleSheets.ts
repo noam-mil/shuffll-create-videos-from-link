@@ -176,15 +176,15 @@ export async function insertDuplicatedRow(
   return newRow;
 }
 
-// Poll column AA (index 26) of a given row for an MP4 URL
+// Poll column C (index 2, exportUrl) of a given row for an MP4 URL
 export async function fetchMp4FromSheetById(spreadsheetId: string, rowIndex: number): Promise<string | null> {
   const token = await getAccessToken();
-  const range = encodeURIComponent(`A${rowIndex}:AA${rowIndex}`);
+  const range = encodeURIComponent(`C${rowIndex}:C${rowIndex}`);
   const res   = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
   const data  = await res.json() as { values?: string[][] };
-  const row   = data.values?.[0] ?? [];
-  return row[26] || null;
+  const val   = data.values?.[0]?.[0] ?? '';
+  return val || null;
 }
