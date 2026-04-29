@@ -387,7 +387,7 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
 
     // Poll once a minute; no hard timeout — video generation can take many minutes
     check(); // check immediately on submit too
-    pollRef.current = setInterval(check, 60_000);
+    pollRef.current = setInterval(check, 20_000);
 
     return stopPolling;
   }, [genState.status]); // eslint-disable-line react-hooks/exhaustive-deps
