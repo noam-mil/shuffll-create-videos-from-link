@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { Loader2, Copy, Download, RotateCcw, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Loader2, Copy, Download, RotateCcw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { cn } from '@/lib/utils';
@@ -350,225 +350,168 @@ function SingleModeView() {
 
 // ── ExcelModeView ────────────────────────────────────────────────────────────
 
-interface ExcelJob {
-  id: string;
-  url: string;
-  label: string;
-  status: 'submitting' | 'polling' | 'done' | 'error';
-  rowIndex?: number;
-  videoUrl?: string;
-  error?: string;
-  startedAt: number;
-}
+type ExcelGenState =
+  | { status: 'idle' }
+  | { status: 'loading'; rowIndex: number }
+  | { status: 'result';  videoUrl: string }
+  | { status: 'error';   message: string };
 
-function ExcelModeView({ excelUrl }: { excelUrl: string }) {
+function ExcelModeView({ excelUrl: _excelUrl }: { excelUrl: string }) {
   const { t } = useTranslation();
-  const [parseError, setParseError]   = useState<string | null>(null);
-  const [jobs, setJobs]               = useState<ExcelJob[]>([]);
-  const [started, setStarted]         = useState(false);
-  const jobsRef                       = useRef<ExcelJob[]>([]);
-  const pollRef                       = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [newLink,   setNewLink]   = useState('');
+  const [genState,  setGenState]  = useState<ExcelGenState>({ status: 'idle' });
+  const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>  | null>(null);
 
-  const updateJob = (id: string, patch: Partial<ExcelJob>) => {
-    setJobs(prev => {
-      const next = prev.map(j => j.id === id ? { ...j, ...patch } : j);
-      jobsRef.current = next;
-      return next;
-    });
-  };
+  const isLoading  = genState.status === 'loading';
+  const isResult   = genState.status === 'result';
+  const isError    = genState.status === 'error';
+  const isValidUrl = newLink.trim().startsWith('http');
 
-  // Load rows on mount — Google Sheets URL → Sheets API, otherwise xlsx download
   useEffect(() => {
-    (async () => {
-      try {
-        let rows: Record<string, string>[];
+    if (genState.status !== 'loading') return;
+    const { rowIndex } = genState;
 
-        const sheetId = extractSheetId(excelUrl);
-        if (sheetId) {
-          rows = await fetchRowsFromGoogleSheet(sheetId);
-        } else {
-          const res = await fetch(excelUrl);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const buf = await res.arrayBuffer();
-          const wb  = XLSX.read(buf, { type: 'array' });
-          const ws  = wb.Sheets[wb.SheetNames[0]];
-          rows = XLSX.utils.sheet_to_json<Record<string, string>>(wb.Sheets[wb.SheetNames[0]], { defval: '' });
-          void ws; // suppress unused warning
-        }
-
-        if (rows.length === 0) { setParseError('Sheet/file is empty'); return; }
-
-        const headers = Object.keys(rows[0]);
-        let urlCol = headers.find(h => h.toLowerCase().includes('url'));
-        if (!urlCol) {
-          urlCol = headers.find(h => rows.some(r => String(r[h]).trim().startsWith('http')));
-        }
-        if (!urlCol) { setParseError('Could not find a URL column'); return; }
-
-        const labelCol = headers.find(h => h !== urlCol && (
-          h.toLowerCase().includes('name') ||
-          h.toLowerCase().includes('address') ||
-          h.toLowerCase().includes('title')
-        ));
-
-        const parsed: ExcelJob[] = rows
-          .map((row, i) => ({
-            id: String(i),
-            url: String(row[urlCol!]).trim(),
-            label: labelCol ? String(row[labelCol]).trim() : `Row ${i + 1}`,
-            status: 'submitting' as const,
-            startedAt: Date.now(),
-          }))
-          .filter(j => j.url.startsWith('http'));
-
-        if (parsed.length === 0) { setParseError('No valid URLs found'); return; }
-
-        jobsRef.current = parsed;
-        setJobs(parsed);
-      } catch (e) {
-        setParseError(e instanceof Error ? e.message : 'Failed to load data');
-      }
-    })();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Submit all jobs once parsed
-  useEffect(() => {
-    if (jobs.length === 0 || started) return;
-    setStarted(true);
-
-    jobs.forEach(job => {
-      submitUrl(job.url)
-        .then(rowIndex => updateJob(job.id, { status: 'polling', rowIndex }))
-        .catch(err => updateJob(job.id, { status: 'error', error: err instanceof Error ? err.message : 'Submit failed' }));
-    });
-  }, [jobs.length]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Single polling interval for all polling jobs
-  useEffect(() => {
-    if (jobs.length === 0) return;
-
-    const tick = async () => {
-      const polling = jobsRef.current.filter(j => j.status === 'polling' && j.rowIndex != null);
-      if (polling.length === 0) return;
-
-      await Promise.all(polling.map(async job => {
-        if (Date.now() - job.startedAt > POLL_TIMEOUT) {
-          updateJob(job.id, { status: 'error', error: t('videoGen.errorTimeout') });
-          return;
-        }
-        try {
-          const videoUrl = await fetchMp4FromSheet(job.rowIndex!);
-          if (videoUrl) updateJob(job.id, { status: 'done', videoUrl });
-        } catch { /* keep polling */ }
-      }));
+    const stopPolling = () => {
+      if (pollRef.current)    clearInterval(pollRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
 
-    pollRef.current = setInterval(tick, POLL_INTERVAL);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [jobs.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    const check = async () => {
+      try {
+        const videoUrl = await fetchMp4FromSheet(rowIndex);
+        if (videoUrl) { stopPolling(); setGenState({ status: 'result', videoUrl }); }
+      } catch { /* keep polling */ }
+    };
 
-  const done      = jobs.filter(j => j.status === 'done').length;
-  const errors    = jobs.filter(j => j.status === 'error').length;
-  const inProgress = jobs.filter(j => j.status === 'submitting' || j.status === 'polling').length;
-  const progress  = jobs.length > 0 ? Math.round(((done + errors) / jobs.length) * 100) : 0;
-  const allDone   = jobs.length > 0 && inProgress === 0;
+    pollRef.current    = setInterval(check, POLL_INTERVAL);
+    timeoutRef.current = setTimeout(() => {
+      stopPolling();
+      setGenState({ status: 'error', message: t('videoGen.errorTimeout') });
+    }, POLL_TIMEOUT);
 
-  if (parseError) {
-    return (
-      <div
-        className="rounded-2xl p-5"
-        style={{ backgroundColor: '#181818', border: '1px solid rgba(239,68,68,0.4)' }}
-      >
-        <p className="text-red-400 text-sm">{parseError}</p>
-      </div>
-    );
-  }
+    return stopPolling;
+  }, [genState.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (jobs.length === 0) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-purple-400 mr-2" />
-        <span className="text-gray-400 text-sm">Loading Excel file…</span>
-      </div>
-    );
-  }
+  const handleGenerate = async () => {
+    if (!isValidUrl || isLoading) return;
+    const url = newLink.trim();
+    try {
+      const res  = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, duplicateLastRow: true }),
+      });
+      const data = await res.json() as { rowIndex?: number; error?: string };
+      if (data.error || !data.rowIndex) {
+        setGenState({ status: 'error', message: data.error ?? t('videoGen.errorTitle') });
+        return;
+      }
+      setGenState({ status: 'loading', rowIndex: data.rowIndex });
+    } catch {
+      setGenState({ status: 'error', message: t('videoGen.errorTitle') });
+    }
+  };
+
+  const handleReset = () => { setNewLink(''); setGenState({ status: 'idle' }); };
+
+  const handleCopy = async () => {
+    if (genState.status !== 'result') return;
+    await navigator.clipboard.writeText(genState.videoUrl);
+    toast.success(t('videoGen.copiedLink'));
+  };
 
   return (
     <div className="space-y-4">
-      {/* Progress header */}
-      <div
-        className="rounded-2xl p-5 space-y-3"
-        style={{ backgroundColor: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
-      >
-        <div className="flex items-center justify-between">
-          <span className="text-white font-semibold text-sm">
-            {allDone ? 'All done' : `Processing ${jobs.length} properties…`}
-          </span>
-          <span className="text-xs text-gray-400">{done}/{jobs.length} ready</span>
-        </div>
-
-        {/* Progress bar */}
-        <div className="w-full h-2 rounded-full" style={{ backgroundColor: '#2a2a2a' }}>
-          <div
-            className="h-2 rounded-full transition-all duration-500"
-            style={{ width: `${progress}%`, background: 'linear-gradient(135deg, #8B5CF6, #EC4899, #F97316)' }}
-          />
-        </div>
-
-        {errors > 0 && (
-          <p className="text-red-400 text-xs">{errors} row{errors > 1 ? 's' : ''} failed</p>
-        )}
-      </div>
-
-      {/* Per-row list */}
-      <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-        {jobs.map(job => (
-          <div
-            key={job.id}
-            className="rounded-xl px-4 py-3 flex items-center gap-3"
-            style={{ backgroundColor: '#181818', border: '1px solid rgba(255,255,255,0.06)' }}
-          >
-            {/* Status icon */}
-            <div className="flex-shrink-0">
-              {job.status === 'done'       && <CheckCircle className="w-4 h-4 text-green-400" />}
-              {job.status === 'error'      && <XCircle     className="w-4 h-4 text-red-400"   />}
-              {job.status === 'submitting' && <Loader2     className="w-4 h-4 animate-spin text-purple-400" />}
-              {job.status === 'polling'    && <Clock       className="w-4 h-4 text-yellow-400" />}
-            </div>
-
-            {/* Label + URL */}
-            <div className="flex-1 min-w-0">
-              <p className="text-white text-xs font-medium truncate">{job.label}</p>
-              <p className="text-gray-500 text-xs truncate">{job.url}</p>
-              {job.error && <p className="text-red-400 text-xs">{job.error}</p>}
-            </div>
-
-            {/* Actions when done */}
-            {job.status === 'done' && job.videoUrl && (
-              <div className="flex gap-1 flex-shrink-0">
-                <button
-                  onClick={() => { navigator.clipboard.writeText(job.videoUrl!); toast.success('Copied!'); }}
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-white transition-colors"
-                  style={{ backgroundColor: '#2a2a2a' }}
-                  title="Copy link"
-                >
-                  <Copy className="w-3 h-3" />
-                </button>
-                <a
-                  href={job.videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-1.5 rounded-lg text-gray-400 hover:text-white transition-colors"
-                  style={{ backgroundColor: '#2a2a2a' }}
-                  title="Open video"
-                >
-                  <Download className="w-3 h-3" />
-                </a>
-              </div>
-            )}
+      {/* Input card — collapses when result */}
+      {isResult ? (
+        <div
+          className="flex items-center gap-3 px-4 py-3 rounded-xl"
+          style={{ backgroundColor: '#181818', border: '1px solid rgba(255,255,255,0.07)' }}
+        >
+          <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style={badgeGradStyle}>
+            <svg viewBox="0 0 12 12" className="w-3 h-3 text-white fill-current"><path d="M2 6l3 3 5-5"/></svg>
           </div>
-        ))}
-      </div>
+          <span className="text-gray-400 text-sm truncate flex-1">{newLink}</span>
+          <button onClick={handleReset} className="text-gray-500 hover:text-white transition-colors ml-2">
+            <RotateCcw className="w-4 h-4" />
+          </button>
+        </div>
+      ) : (
+        <div
+          className={cn('rounded-2xl p-5 space-y-3 transition-all', isLoading && 'opacity-60')}
+          style={{
+            backgroundColor: '#181818',
+            border: isLoading ? '1px solid rgba(139,92,246,0.4)' : '1px solid rgba(255,255,255,0.07)',
+            boxShadow: isLoading ? '0 0 20px rgba(139,92,246,0.15)' : 'none',
+          }}
+        >
+          <span className="text-white font-semibold text-sm">Paste a property link</span>
+          <div className="flex gap-2">
+            <input
+              type="url"
+              value={newLink}
+              onChange={e => setNewLink(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleGenerate()}
+              placeholder="https://..."
+              disabled={isLoading}
+              className="flex-1 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 outline-none focus:ring-2 focus:ring-purple-500 disabled:cursor-not-allowed transition-all"
+              style={{ backgroundColor: '#0f0f0f', border: '1px solid rgba(255,255,255,0.1)', fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            />
+            <button
+              onClick={handleGenerate}
+              disabled={!isValidUrl || isLoading}
+              className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:opacity-90 active:scale-95 whitespace-nowrap"
+              style={btnGradStyle}
+            >
+              {isLoading ? <><Loader2 className="w-4 h-4 animate-spin" />{t('videoGen.generating')}</> : t('videoGen.generateBtn')}
+            </button>
+          </div>
+          {isError && <p className="text-red-400 text-xs">{(genState as { message: string }).message}</p>}
+        </div>
+      )}
+
+      {/* Video card */}
+      {(isLoading || isResult) && (
+        <div
+          className="rounded-2xl p-5 space-y-4"
+          style={{
+            backgroundColor: '#181818',
+            border: isResult ? '1px solid rgba(139,92,246,0.5)' : '1px solid rgba(255,255,255,0.07)',
+            boxShadow: isResult ? '0 0 30px rgba(139,92,246,0.2)' : 'none',
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold px-2 py-0.5 rounded-md text-white" style={badgeGradStyle}>2</span>
+            <span className="text-white font-semibold text-sm">{t('videoGen.step2Label')}</span>
+            {isResult && <span className="ml-auto text-xs font-semibold" style={gradStyle}>{t('videoGen.ready')}</span>}
+          </div>
+
+          {isLoading && (
+            <div className="space-y-3">
+              <div className="w-full aspect-video rounded-xl" style={{ background: 'linear-gradient(90deg, #222 0%, #333 50%, #222 100%)', backgroundSize: '200% 100%', animation: 'shimmer 2s ease-in-out infinite' }} />
+              <div className="flex items-center gap-2 text-gray-500 text-sm">
+                <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+                {t('videoGen.processing')}
+              </div>
+            </div>
+          )}
+
+          {isResult && (
+            <div className="space-y-4">
+              <VideoPlayer videoUrl={(genState as { videoUrl: string }).videoUrl} />
+              <div className="flex gap-2 flex-wrap">
+                <button onClick={handleCopy} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90" style={{ backgroundColor: '#2a2a2a', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <Copy className="w-4 h-4" />{t('videoGen.copyLink')}
+                </button>
+                <button onClick={handleReset} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all hover:opacity-90" style={{ background: 'linear-gradient(135deg, #8B5CF6, #EC4899, #F97316)', color: 'white' }}>
+                  <RotateCcw className="w-4 h-4" />{t('videoGen.generateBtn')}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
