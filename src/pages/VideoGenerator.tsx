@@ -38,11 +38,25 @@ async function submitUrl(url: string): Promise<number> {
   return data.rowIndex;
 }
 
-function toExportUrl(raw: string): string {
-  // Google Sheets share URL → direct CSV export
-  const m = raw.match(/\/spreadsheets\/d\/([^/]+)/);
-  if (m) return `https://docs.google.com/spreadsheets/d/${m[1]}/export?format=xlsx`;
-  return raw;
+function extractSheetId(url: string): string | null {
+  const m = url.match(/\/spreadsheets\/d\/([^/?#]+)/);
+  return m ? m[1] : null;
+}
+
+async function fetchRowsFromGoogleSheet(sheetId: string): Promise<Record<string, string>[]> {
+  const res  = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/A1:ZZ1000?key=${API_KEY}`
+  );
+  if (!res.ok) throw new Error(`Sheets API HTTP ${res.status}`);
+  const data = await res.json() as { values?: string[][] };
+  const raw  = data.values ?? [];
+  if (raw.length < 2) return [];
+  const headers = raw[0];
+  return raw.slice(1).map(row => {
+    const obj: Record<string, string> = {};
+    headers.forEach((h, i) => { obj[h] = row[i] ?? ''; });
+    return obj;
+  });
 }
 
 // ── Shared style constants ──────────────────────────────────────────────────
@@ -363,29 +377,39 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
     });
   };
 
-  // Parse Excel on mount
+  // Load rows on mount — Google Sheets URL → Sheets API, otherwise xlsx download
   useEffect(() => {
     (async () => {
       try {
-        const exportUrl = toExportUrl(excelUrl);
-        const res = await fetch(exportUrl);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const buf  = await res.arrayBuffer();
-        const wb   = XLSX.read(buf, { type: 'array' });
-        const ws   = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json<Record<string, string>>(ws, { defval: '' });
+        let rows: Record<string, string>[];
 
-        if (rows.length === 0) { setParseError('Excel file is empty'); return; }
+        const sheetId = extractSheetId(excelUrl);
+        if (sheetId) {
+          rows = await fetchRowsFromGoogleSheet(sheetId);
+        } else {
+          const res = await fetch(excelUrl);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const buf = await res.arrayBuffer();
+          const wb  = XLSX.read(buf, { type: 'array' });
+          const ws  = wb.Sheets[wb.SheetNames[0]];
+          rows = XLSX.utils.sheet_to_json<Record<string, string>>(wb.Sheets[wb.SheetNames[0]], { defval: '' });
+          void ws; // suppress unused warning
+        }
 
-        // Find URL column: prefer header containing "url" (case-insensitive), else first column with http values
+        if (rows.length === 0) { setParseError('Sheet/file is empty'); return; }
+
         const headers = Object.keys(rows[0]);
         let urlCol = headers.find(h => h.toLowerCase().includes('url'));
         if (!urlCol) {
           urlCol = headers.find(h => rows.some(r => String(r[h]).trim().startsWith('http')));
         }
-        if (!urlCol) { setParseError('Could not find a URL column in the Excel file'); return; }
+        if (!urlCol) { setParseError('Could not find a URL column'); return; }
 
-        const labelCol = headers.find(h => h !== urlCol && (h.toLowerCase().includes('name') || h.toLowerCase().includes('address') || h.toLowerCase().includes('title')));
+        const labelCol = headers.find(h => h !== urlCol && (
+          h.toLowerCase().includes('name') ||
+          h.toLowerCase().includes('address') ||
+          h.toLowerCase().includes('title')
+        ));
 
         const parsed: ExcelJob[] = rows
           .map((row, i) => ({
@@ -397,12 +421,12 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
           }))
           .filter(j => j.url.startsWith('http'));
 
-        if (parsed.length === 0) { setParseError('No valid URLs found in the Excel file'); return; }
+        if (parsed.length === 0) { setParseError('No valid URLs found'); return; }
 
         jobsRef.current = parsed;
         setJobs(parsed);
       } catch (e) {
-        setParseError(e instanceof Error ? e.message : 'Failed to load Excel file');
+        setParseError(e instanceof Error ? e.message : 'Failed to load data');
       }
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
