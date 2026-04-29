@@ -360,6 +360,7 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
   const { t } = useTranslation();
   const sheetId = extractSheetId(excelUrl) ?? '';
   const [newLink,   setNewLink]   = useState('');
+  const [email,     setEmail]     = useState('');
   const [genState,  setGenState]  = useState<ExcelGenState>({ status: 'idle' });
   const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>  | null>(null);
@@ -479,11 +480,34 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
           </div>
 
           {isLoading && (
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="w-full aspect-video rounded-xl" style={{ background: 'linear-gradient(90deg, #222 0%, #333 50%, #222 100%)', backgroundSize: '200% 100%', animation: 'shimmer 2s ease-in-out infinite' }} />
               <div className="flex items-center gap-2 text-gray-500 text-sm">
                 <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
                 {t('videoGen.processing')}
+              </div>
+              {/* Email capture */}
+              <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: '#111', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  This process usually takes <span className="text-white font-semibold">5–10 minutes</span>. Meanwhile — enter your email and we'll send you the video right away.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="flex-1 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                    style={{ backgroundColor: '#0f0f0f', border: '1px solid rgba(255,255,255,0.1)', fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                  />
+                  <button
+                    disabled={!email.includes('@')}
+                    className="px-4 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:opacity-90 whitespace-nowrap"
+                    style={btnGradStyle}
+                  >
+                    Notify me
+                  </button>
+                </div>
               </div>
             </div>
           )}
