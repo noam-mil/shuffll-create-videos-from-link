@@ -2,11 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { Loader2, Copy, Download, RotateCcw } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import shuffllLogo from '@/assets/shuffll-logo.svg';
+import { insertDuplicatedRow, fetchMp4FromSheetById } from '@/lib/googleSheets';
 
 const SCRIPT_URL    = 'REPLACE_WITH_APPS_SCRIPT_WEB_APP_URL';
 const SHEET_ID      = '1QO81dUtX_eHwpqawLCK57xqpuTOOmBGrG71D7fvUu4A';
@@ -356,8 +356,9 @@ type ExcelGenState =
   | { status: 'result';  videoUrl: string }
   | { status: 'error';   message: string };
 
-function ExcelModeView({ excelUrl: _excelUrl }: { excelUrl: string }) {
+function ExcelModeView({ excelUrl }: { excelUrl: string }) {
   const { t } = useTranslation();
+  const sheetId = extractSheetId(excelUrl) ?? '';
   const [newLink,   setNewLink]   = useState('');
   const [genState,  setGenState]  = useState<ExcelGenState>({ status: 'idle' });
   const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -379,7 +380,7 @@ function ExcelModeView({ excelUrl: _excelUrl }: { excelUrl: string }) {
 
     const check = async () => {
       try {
-        const videoUrl = await fetchMp4FromSheet(rowIndex);
+        const videoUrl = await fetchMp4FromSheetById(sheetId, rowIndex);
         if (videoUrl) { stopPolling(); setGenState({ status: 'result', videoUrl }); }
       } catch { /* keep polling */ }
     };
@@ -397,19 +398,10 @@ function ExcelModeView({ excelUrl: _excelUrl }: { excelUrl: string }) {
     if (!isValidUrl || isLoading) return;
     const url = newLink.trim();
     try {
-      const res  = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, duplicateLastRow: true }),
-      });
-      const data = await res.json() as { rowIndex?: number; error?: string };
-      if (data.error || !data.rowIndex) {
-        setGenState({ status: 'error', message: data.error ?? t('videoGen.errorTitle') });
-        return;
-      }
-      setGenState({ status: 'loading', rowIndex: data.rowIndex });
-    } catch {
-      setGenState({ status: 'error', message: t('videoGen.errorTitle') });
+      const rowIndex = await insertDuplicatedRow(sheetId, url);
+      setGenState({ status: 'loading', rowIndex });
+    } catch (e) {
+      setGenState({ status: 'error', message: e instanceof Error ? e.message : t('videoGen.errorTitle') });
     }
   };
 
