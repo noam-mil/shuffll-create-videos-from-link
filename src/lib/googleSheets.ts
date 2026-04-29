@@ -74,16 +74,26 @@ export async function getAccessToken(): Promise<string> {
   return data.access_token;
 }
 
-// Fetch all rows from a sheet (using service account, bypasses read-only API key limit)
-export async function getSheetRows(spreadsheetId: string): Promise<string[][]> {
-  const token = await getAccessToken();
+// Returns the 1-indexed number of the last row that has any content in column A
+async function getLastRowNumber(spreadsheetId: string, token: string): Promise<number> {
   const res = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A1:AA10000`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A:A`,
     { headers: { Authorization: `Bearer ${token}` } },
   );
   if (!res.ok) throw new Error(`Sheets read failed: ${res.status}`);
   const data = await res.json() as { values?: string[][] };
-  return data.values ?? [];
+  return (data.values ?? []).length;
+}
+
+// Fetch a specific row's values (columns A–AZ)
+async function getRowValues(spreadsheetId: string, rowIndex: number, token: string): Promise<string[]> {
+  const res = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A${rowIndex}:AZ${rowIndex}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok) throw new Error(`Sheets read failed: ${res.status}`);
+  const data = await res.json() as { values?: string[][] };
+  return data.values?.[0] ?? [];
 }
 
 /**
@@ -100,12 +110,10 @@ export async function insertDuplicatedRow(
 ): Promise<number> {
   const token = await getAccessToken();
 
-  // 1. Read all rows to get last row values
-  const rows = await getSheetRows(spreadsheetId);
-  if (rows.length === 0) throw new Error('Sheet appears empty');
-
-  const lastRowIndex   = rows.length;       // 1-indexed row number of last row
-  const lastRowValues  = [...rows[lastRowIndex - 1]];
+  // 1. Find true last row via column A length, then fetch its full values
+  const lastRowIndex  = await getLastRowNumber(spreadsheetId, token);
+  if (lastRowIndex === 0) throw new Error('Sheet appears empty');
+  const lastRowValues = [...await getRowValues(spreadsheetId, lastRowIndex, token)];
 
   // 2. Insert a blank row after the last row (batchUpdate → insertDimension)
   const insertRes = await fetch(
