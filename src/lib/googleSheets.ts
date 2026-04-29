@@ -176,6 +176,37 @@ export async function insertDuplicatedRow(
   return newRow;
 }
 
+// Read column AB of a row, push email to the stored array, write back
+export async function addEmailToRow(spreadsheetId: string, rowIndex: number, email: string): Promise<void> {
+  const token = await getAccessToken();
+
+  // Read current AB value
+  const readRes = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/AB${rowIndex}:AB${rowIndex}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  const readData = await readRes.json() as { values?: string[][] };
+  const raw = readData.values?.[0]?.[0] ?? '';
+
+  // Parse existing array (stored as JSON) or start fresh
+  let emails: string[] = [];
+  if (raw) {
+    try { emails = JSON.parse(raw); } catch { emails = [raw]; }
+  }
+  if (!emails.includes(email)) emails.push(email);
+
+  // Write back
+  const writeRes = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/AB${rowIndex}:AB${rowIndex}?valueInputOption=USER_ENTERED`,
+    {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [[JSON.stringify(emails)]] }),
+    },
+  );
+  if (!writeRes.ok) throw new Error(`Email write failed: ${writeRes.status}`);
+}
+
 // Poll column C (index 2, exportUrl) of a given row for an MP4 URL
 export async function fetchMp4FromSheetById(spreadsheetId: string, rowIndex: number): Promise<string | null> {
   const token = await getAccessToken();

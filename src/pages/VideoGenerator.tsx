@@ -6,7 +6,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import shuffllLogo from '@/assets/shuffll-logo.svg';
-import { insertDuplicatedRow, fetchMp4FromSheetById } from '@/lib/googleSheets';
+import { insertDuplicatedRow, fetchMp4FromSheetById, addEmailToRow } from '@/lib/googleSheets';
 
 const SCRIPT_URL    = 'REPLACE_WITH_APPS_SCRIPT_WEB_APP_URL';
 const SHEET_ID      = '1QO81dUtX_eHwpqawLCK57xqpuTOOmBGrG71D7fvUu4A';
@@ -360,8 +360,9 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
   const { t } = useTranslation();
   const sheetId = extractSheetId(excelUrl) ?? '';
   const [newLink,   setNewLink]   = useState('');
-  const [email,     setEmail]     = useState('');
-  const [genState,  setGenState]  = useState<ExcelGenState>({ status: 'idle' });
+  const [email,         setEmail]         = useState('');
+  const [emailSent,     setEmailSent]     = useState(false);
+  const [genState,      setGenState]      = useState<ExcelGenState>({ status: 'idle' });
   const pollRef    = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout>  | null>(null);
 
@@ -405,7 +406,18 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
     }
   };
 
-  const handleReset = () => { setNewLink(''); setGenState({ status: 'idle' }); };
+  const handleNotify = async () => {
+    if (!email.includes('@') || genState.status !== 'loading') return;
+    try {
+      await addEmailToRow(sheetId, genState.rowIndex, email);
+      setEmailSent(true);
+      toast.success('Got it! We\'ll email you when your video is ready.');
+    } catch {
+      toast.error('Failed to save email, please try again.');
+    }
+  };
+
+  const handleReset = () => { setNewLink(''); setEmail(''); setEmailSent(false); setGenState({ status: 'idle' }); };
 
   const handleCopy = async () => {
     if (genState.status !== 'result') return;
@@ -501,11 +513,12 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
                     style={{ backgroundColor: '#0f0f0f', border: '1px solid rgba(255,255,255,0.1)', fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                   />
                   <button
-                    disabled={!email.includes('@')}
+                    onClick={handleNotify}
+                    disabled={!email.includes('@') || emailSent}
                     className="px-4 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all hover:opacity-90 whitespace-nowrap"
                     style={btnGradStyle}
                   >
-                    Notify me
+                    {emailSent ? '✓ Saved' : 'Notify me'}
                   </button>
                 </div>
               </div>
