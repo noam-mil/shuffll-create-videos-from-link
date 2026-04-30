@@ -117,8 +117,7 @@ function PageShell({ isRtl, children }: { isRtl: boolean; children: React.ReactN
         backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% 100%, rgba(139,92,246,0.15) 0%, rgba(236,72,153,0.05) 50%, transparent 70%)',
       }}
     >
-      <nav className="flex items-center justify-between px-6 py-4 max-w-3xl mx-auto w-full">
-        <img src={shuffllLogo} alt="Shuffll" className="h-7 w-auto" />
+      <nav className="flex items-center justify-end px-6 py-4 max-w-3xl mx-auto w-full">
         <LanguageSwitcher />
       </nav>
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">
@@ -134,6 +133,7 @@ function Hero() {
   const { t } = useTranslation();
   return (
     <div className="text-center space-y-3 mb-8">
+      <img src={shuffllLogo} alt="Shuffll" className="h-8 w-auto mx-auto mb-3" />
       <span
         className="inline-block text-xs font-700 px-3 py-1 rounded-full text-white mb-2"
         style={{ ...badgeGradStyle, fontWeight: 700 }}
