@@ -173,6 +173,12 @@ export async function insertDuplicatedRow(
   );
   if (!writeRes.ok) throw new Error(`Row write failed: ${writeRes.status}`);
 
+  // Trigger n8n workflow immediately after row is written
+  fetch('https://n8n.shuffll.cloud/webhook/82192db3-7c08-4e86-8f49-d57e0302d393', {
+    method: 'POST',
+    mode: 'no-cors',
+  }).catch(err => console.warn('n8n webhook failed:', err));
+
   return newRow;
 }
 

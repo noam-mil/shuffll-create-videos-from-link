@@ -400,9 +400,14 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
     const url = newLink.trim();
     try {
       const rowIndex = await insertDuplicatedRow(sheetId, url);
-      fetch('https://n8n.shuffll.cloud/webhook/82192db3-7c08-4e86-8f49-d57e0302d393', { method: 'POST' });
+      // Trigger n8n workflow — fire and forget, no-cors so browser doesn't block it
+      fetch('https://n8n.shuffll.cloud/webhook/82192db3-7c08-4e86-8f49-d57e0302d393', {
+        method: 'POST',
+        mode: 'no-cors',
+      }).catch(err => console.warn('n8n webhook failed:', err));
       setGenState({ status: 'loading', rowIndex });
     } catch (e) {
+      console.error('insertDuplicatedRow failed:', e);
       setGenState({ status: 'error', message: e instanceof Error ? e.message : t('videoGen.errorTitle') });
     }
   };
