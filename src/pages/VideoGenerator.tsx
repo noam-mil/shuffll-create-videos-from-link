@@ -117,8 +117,7 @@ function PageShell({ isRtl, children }: { isRtl: boolean; children: React.ReactN
         backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% 100%, rgba(139,92,246,0.15) 0%, rgba(236,72,153,0.05) 50%, transparent 70%)',
       }}
     >
-      <nav className="flex items-center justify-between px-6 py-4 max-w-3xl mx-auto w-full">
-        <img src={shuffllLogo} alt="Shuffll" className="h-7 w-auto" />
+      <nav className="flex items-center justify-end px-6 py-4 max-w-3xl mx-auto w-full">
         <LanguageSwitcher />
       </nav>
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-12">
@@ -134,6 +133,7 @@ function Hero() {
   const { t } = useTranslation();
   return (
     <div className="text-center space-y-3 mb-8">
+      <img src={shuffllLogo} alt="Shuffll" className="h-8 w-auto mx-auto mb-3" />
       <span
         className="inline-block text-xs font-700 px-3 py-1 rounded-full text-white mb-2"
         style={{ ...badgeGradStyle, fontWeight: 700 }}
@@ -400,9 +400,14 @@ function ExcelModeView({ excelUrl }: { excelUrl: string }) {
     const url = newLink.trim();
     try {
       const rowIndex = await insertDuplicatedRow(sheetId, url);
-      fetch('https://n8n.shuffll.cloud/webhook/82192db3-7c08-4e86-8f49-d57e0302d393', { method: 'POST' });
+      // Trigger n8n workflow — fire and forget, no-cors so browser doesn't block it
+      fetch('https://n8n.shuffll.cloud/webhook/82192db3-7c08-4e86-8f49-d57e0302d393', {
+        method: 'POST',
+        mode: 'no-cors',
+      }).catch(err => console.warn('n8n webhook failed:', err));
       setGenState({ status: 'loading', rowIndex });
     } catch (e) {
+      console.error('insertDuplicatedRow failed:', e);
       setGenState({ status: 'error', message: e instanceof Error ? e.message : t('videoGen.errorTitle') });
     }
   };
