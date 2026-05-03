@@ -8,34 +8,15 @@ import { toast } from 'sonner';
 import shuffllLogo from '@/assets/shuffll-logo.svg';
 import { insertDuplicatedRow, fetchMp4FromSheetById, addEmailToRow } from '@/lib/googleSheets';
 
-const SCRIPT_URL    = 'REPLACE_WITH_APPS_SCRIPT_WEB_APP_URL';
 const SHEET_ID      = '1QO81dUtX_eHwpqawLCK57xqpuTOOmBGrG71D7fvUu4A';
-const API_KEY       = 'AIzaSyAQEL3RhP6ugU1Lnav-Aoj4EXsRU8wdKAU';
-const MP4_COL_INDEX = 26;
 const POLL_INTERVAL = 3000;
 const POLL_TIMEOUT  = 120_000;
 
 // ── Shared helpers ──────────────────────────────────────────────────────────
 
-async function fetchMp4FromSheet(rowIndex: number): Promise<string | null> {
-  const range = encodeURIComponent(`A${rowIndex}:AA${rowIndex}`);
-  const res   = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?key=${API_KEY}`
-  );
-  const data  = await res.json() as { values?: string[][] };
-  const row   = data.values?.[0] ?? [];
-  return row[MP4_COL_INDEX] || null;
-}
 
 async function submitUrl(url: string): Promise<number> {
-  const res  = await fetch(SCRIPT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
-  });
-  const data = await res.json() as { rowIndex?: number; error?: string };
-  if (data.error || !data.rowIndex) throw new Error(data.error ?? 'No rowIndex returned');
-  return data.rowIndex;
+  return insertDuplicatedRow(SHEET_ID, url);
 }
 
 function extractSheetId(url: string): string | null {
@@ -186,7 +167,7 @@ function SingleModeView() {
 
     const checkSheet = async () => {
       try {
-        const videoUrl = await fetchMp4FromSheet(rowIndex);
+        const videoUrl = await fetchMp4FromSheetById(SHEET_ID, rowIndex);
         if (videoUrl) {
           stopPolling();
           setState({ status: 'result', url, videoUrl });
