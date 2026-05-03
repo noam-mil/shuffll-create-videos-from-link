@@ -66,7 +66,16 @@ export async function getAccessToken(): Promise<string> {
     );
   }
 
-  const saKey = saKeyRaw.replace(/\\n/g, '\n');
+  // Prefer base64-encoded key (avoids all newline/escaping issues with Vercel env vars)
+  // Fall back to raw key with literal \n conversion
+  let saKey: string;
+  const saKeyB64 = import.meta.env.VITE_SA_PRIVATE_KEY_B64 as string | undefined;
+  if (saKeyB64) {
+    saKey = atob(saKeyB64);
+  } else {
+    // Handle both literal \n (from .env files) and actual newlines (from Vercel UI paste)
+    saKey = saKeyRaw.replace(/\\n/g, '\n');
+  }
 
   const jwt = await makeJwt(saEmail, saKey);
   const res = await fetch('https://oauth2.googleapis.com/token', {
@@ -74,7 +83,10 @@ export async function getAccessToken(): Promise<string> {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
   });
-  if (!res.ok) throw new Error(`Token request failed: ${res.status}`);
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    throw new Error(`Token request failed: ${res.status} ${errBody}`);
+  }
   const data = await res.json() as { access_token: string; expires_in: number };
 
   cachedToken = { value: data.access_token, exp: now + data.expires_in };
