@@ -56,10 +56,17 @@ export async function getAccessToken(): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   if (cachedToken && cachedToken.exp > now + 60) return cachedToken.value;
 
-  const saEmail = import.meta.env.VITE_SA_EMAIL as string;
-  const saKey   = (import.meta.env.VITE_SA_PRIVATE_KEY as string).replace(/\\n/g, '\n');
+  const saEmail = import.meta.env.VITE_SA_EMAIL as string | undefined;
+  const saKeyRaw = import.meta.env.VITE_SA_PRIVATE_KEY as string | undefined;
 
-  if (!saEmail || !saKey) throw new Error('Missing VITE_SA_EMAIL or VITE_SA_PRIVATE_KEY in .env');
+  if (!saEmail || !saKeyRaw) {
+    throw new Error(
+      'Missing environment variables: VITE_SA_EMAIL and/or VITE_SA_PRIVATE_KEY are not set. ' +
+      'Add them in Vercel → Project Settings → Environment Variables.',
+    );
+  }
+
+  const saKey = saKeyRaw.replace(/\\n/g, '\n');
 
   const jwt = await makeJwt(saEmail, saKey);
   const res = await fetch('https://oauth2.googleapis.com/token', {
