@@ -56,26 +56,22 @@ export async function getAccessToken(): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
   if (cachedToken && cachedToken.exp > now + 60) return cachedToken.value;
 
-  const saEmail = import.meta.env.VITE_SA_EMAIL as string | undefined;
+  const saEmail  = import.meta.env.VITE_SA_EMAIL as string | undefined;
+  const saKeyB64 = import.meta.env.VITE_SA_PRIVATE_KEY_B64 as string | undefined;
   const saKeyRaw = import.meta.env.VITE_SA_PRIVATE_KEY as string | undefined;
 
-  if (!saEmail || !saKeyRaw) {
+  if (!saEmail || (!saKeyB64 && !saKeyRaw)) {
     throw new Error(
-      'Missing environment variables: VITE_SA_EMAIL and/or VITE_SA_PRIVATE_KEY are not set. ' +
+      'Missing environment variables: VITE_SA_EMAIL and VITE_SA_PRIVATE_KEY_B64 are not set. ' +
       'Add them in Vercel → Project Settings → Environment Variables.',
     );
   }
 
   // Prefer base64-encoded key (avoids all newline/escaping issues with Vercel env vars)
   // Fall back to raw key with literal \n conversion
-  let saKey: string;
-  const saKeyB64 = import.meta.env.VITE_SA_PRIVATE_KEY_B64 as string | undefined;
-  if (saKeyB64) {
-    saKey = atob(saKeyB64);
-  } else {
-    // Handle both literal \n (from .env files) and actual newlines (from Vercel UI paste)
-    saKey = saKeyRaw.replace(/\\n/g, '\n');
-  }
+  const saKey = saKeyB64
+    ? atob(saKeyB64)
+    : saKeyRaw!.replace(/\\n/g, '\n');
 
   const jwt = await makeJwt(saEmail, saKey);
   const res = await fetch('https://oauth2.googleapis.com/token', {

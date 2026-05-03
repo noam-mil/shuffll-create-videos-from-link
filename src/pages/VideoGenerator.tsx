@@ -594,6 +594,7 @@ const VideoGenerator = () => {
     <PageShell isRtl={isRtl}>
       <Hero />
       {excelUrl ? <ExcelModeView excelUrl={excelUrl} /> : <SingleModeView />}
+      <p className="text-center text-gray-600 text-xs mt-6">v1.0.7</p>
     </PageShell>
   );
 };
