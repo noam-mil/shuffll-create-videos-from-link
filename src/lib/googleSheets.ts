@@ -70,7 +70,7 @@ export async function getAccessToken(): Promise<string> {
   // Prefer base64-encoded key (avoids all newline/escaping issues with Vercel env vars)
   // Fall back to raw key with literal \n conversion
   const saKey = saKeyB64
-    ? atob(saKeyB64.trim())
+    ? atob(saKeyB64.replace(/\s/g, ''))
     : saKeyRaw!.replace(/\\n/g, '\n');
 
   const jwt = await makeJwt(saEmail, saKey);
