@@ -69,8 +69,10 @@ export async function getAccessToken(): Promise<string> {
 
   // Prefer base64-encoded key (avoids all newline/escaping issues with Vercel env vars)
   // Fall back to raw key with literal \n conversion
+  // saKeyB64 stores the raw inner DER base64 (no PEM headers, no newlines)
+  // We reconstruct the PEM here so atob() is only ever called on clean base64
   const saKey = saKeyB64
-    ? atob(saKeyB64.replace(/\s/g, ''))
+    ? `-----BEGIN PRIVATE KEY-----\n${saKeyB64.replace(/\s/g, '')}\n-----END PRIVATE KEY-----`
     : saKeyRaw!.replace(/\\n/g, '\n');
 
   const jwt = await makeJwt(saEmail, saKey);
